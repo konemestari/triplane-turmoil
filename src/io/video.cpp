@@ -22,7 +22,9 @@
 #include "io/dksfile.h"
 #include "util/wutil.h"
 #include <SDL.h>
+#include "io/touch.h"
 #include <signal.h>
+#include <string.h>
 #include <unistd.h>
 #include <assert.h>
 
@@ -113,6 +115,12 @@ void do_all(int do_retrace) {
     video_state.viewportHeight = dstRect.h;
 
     SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, &dstRect);
+
+    if (touch_controls_enabled()) {
+        touch_set_layout(windowWidth, windowHeight, dstRect.x, dstRect.y, dstRect.w, dstRect.h);
+        touch_draw(video_state.renderer);
+    }
+
     SDL_RenderPresent(video_state.renderer);
 }
 
@@ -134,6 +142,9 @@ void init_video(void) {
         video_state.init_done = 1;
 
         Uint32 mode_flags = SDL_WINDOW_OPENGL;
+#ifdef TRIPLANE_IOS
+        mode_flags |= SDL_WINDOW_BORDERLESS;  // no HIGHDPI: keeps mouse and viewport in the same units
+#endif
 
         int windowWidth = 1920, windowHeight = 1080;
 

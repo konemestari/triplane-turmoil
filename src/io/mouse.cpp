@@ -77,7 +77,7 @@ void koords(int *x, int *y, int *n1, int *n2) {
     int windowWidth, windowHeight;
     SDL_GetWindowSize(video_state.window, &windowWidth, &windowHeight);
 
-#ifdef __SWITCH__
+#if defined(__SWITCH__) || defined(TRIPLANE_TOUCH)
     // Use the first joystick to emulate a mouse (for devices without mouse
     // and with joysticks, like Nintendo Switch)
     //

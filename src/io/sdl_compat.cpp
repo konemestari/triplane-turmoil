@@ -19,6 +19,7 @@
  */
 
 #include <SDL.h>
+#include "io/touch.h"
 #include <ctype.h>
 
 #ifdef HAVE_SDL_MIXER
@@ -82,6 +83,7 @@ void update_key_state(void) {
     while (SDL_PollEvent(&e)) {
         ;
     }
+    touch_update();
 }
 
 /**
@@ -225,8 +227,11 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
     mod->music = Mix_LoadMUS_RW(rwops, SDL_FALSE);
     SDL_FreeRW(rwops);
     if (mod->music == NULL) {
+        /* Missing music support should not stop the game. */
         fprintf(stderr, "sdl_load_mod_file: %s\n", Mix_GetError());
-        exit(1);
+        free(mod);
+        free(p);
+        return NULL;
     }
 
     free(p);
@@ -239,6 +244,8 @@ sb_mod_file *sdl_load_mod_file(const char *name) {
 
 void sdl_free_mod_file(sb_mod_file * mod) {
 #ifdef HAVE_SDL_MIXER
+    if (mod == NULL)
+        return;
     Mix_FreeMusic(mod->music);
     free(mod);
 #endif
@@ -246,6 +253,8 @@ void sdl_free_mod_file(sb_mod_file * mod) {
 
 void sdl_play_music(sb_mod_file * mod) {
 #ifdef HAVE_SDL_MIXER
+    if (mod == NULL)
+        return;
     sdl_stop_all_samples();
     Mix_PlayMusic(mod->music, -1);
 #endif

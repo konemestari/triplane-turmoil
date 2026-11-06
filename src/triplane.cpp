@@ -45,6 +45,7 @@
 #include "io/trip_io.h"
 #include "io/sdl_compat.h"
 #include "settings.h"
+#include "io/touch.h"
 
 //\\\\ Variables
 
@@ -337,6 +338,7 @@ int new_mc_bomb[16];
 int new_mc_roll[16];
 int new_mc_guns[16];
 int new_mc_power[16];
+int touch_power_state[16];
 
 int main_version;
 int sub_version;
@@ -1206,6 +1208,37 @@ void controls(void) {
 
             if ((playing_solo ? key[roster[config.player_number[solo_country]].guns] : key[player_keys[l].guns])) {
                 new_mc_guns[l] = 1;
+            }
+
+            // On-screen touch controls for the human player
+            if (touch_controls_enabled() && !computer_active[l] && (!playing_solo || l == solo_country)) {
+                touch_mark_ingame();
+
+                if (touch_up())
+                    new_mc_up[l] = 1;
+                if (touch_down())
+                    new_mc_down[l] = 1;
+                if (touch_guns())
+                    new_mc_guns[l] = 1;
+                if (touch_bombs())
+                    new_mc_bomb[l] = 1;
+
+                // Engine power is a tap-to-toggle button
+                if (touch_consume_power_toggle())
+                    touch_power_state[l] = !touch_power_state[l];
+                if (in_closing[l])
+                    touch_power_state[l] = 0;
+                if (touch_power_state[l])
+                    new_mc_power[l] = 1;
+
+                // Autoroll (same rule as gamepads without a roll button)
+                if (!(hangarmenu_active[l] || in_closing[l]) && !new_mc_roll[l]) {
+                    if (new_mc_down[l] == new_mc_up[l]) /* not turning up/down */
+                        if ((player_upsidedown[l] && (player_angle[l] < 23040 || player_angle[l] > 69120)) ||
+                            (!player_upsidedown[l] && (player_angle[l] < 69120 && player_angle[l] > 23040)))
+                            if (!player_rolling[l])
+                                new_mc_roll[l] = 1;
+                }
             }
         }
 
@@ -3399,6 +3432,7 @@ void init_data(void) {
         new_mc_roll[l] = 0;
         new_mc_guns[l] = 0;
         new_mc_power[l] = 0;
+        touch_power_state[l] = 0;
 
 
         roll_key_down[l] = 0;
@@ -3603,6 +3637,25 @@ int main(int argc, char *argv[]) {
     int laskuri;
     FILE *faili;
     Bitmap *lakuva1;
+
+#ifdef TRIPLANE_IOS
+    // Data files ship inside the app bundle; settings go to the app's
+    // writable Library folder. Force landscape and hide the home bar.
+    {
+        char *base = SDL_GetBasePath();
+        if (base) {
+            setenv("TRIPLANE_DATA", base, 1);
+            SDL_free(base);
+        }
+        char *pref = SDL_GetPrefPath("Triplane", "TriplaneClassic");
+        if (pref) {
+            setenv("TRIPLANE_HOME", pref, 1);
+            SDL_free(pref);
+        }
+        SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+        SDL_SetHint(SDL_HINT_IOS_HIDE_HOME_INDICATOR, "2");
+    }
+#endif
 
     for (laskuri = 0; laskuri < argc; laskuri++)
         strcpy(parametrit[laskuri], argv[laskuri]);

@@ -25,6 +25,7 @@
 #include <string.h>
 #include "sdl_compat.h"
 #include "io/joystick.h"
+#include "io/touch.h"
 #include "settings.h"
 #include "util/wutil.h"
 
@@ -345,6 +346,8 @@ int joystick_check_key_until_released(SDL_GameControllerButton key) {
 }
 
 int joystick_emulate_escape(void) {
+    if (touch_consume_escape())
+        return 1;
     return joystick_check_key_until_released(SDL_CONTROLLER_BUTTON_BACK);
 }
 

@@ -333,7 +333,7 @@ void restore_default_roster(FILE *faili) {
     }
 
 // Since text input is a pain in Switch, initialize some names
-#ifdef __SWITCH__
+#if defined(__SWITCH__) || defined(TRIPLANE_TOUCH)
     for (int idx = 0; idx < 4; idx++) {
         sprintf(roster[idx].pilotname, "Player %d", idx + 1);
     }
