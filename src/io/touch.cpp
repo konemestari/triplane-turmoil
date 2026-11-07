@@ -342,7 +342,8 @@ static const SDL_Color COL_ICON = { 236, 224, 196, 255 };
 static const SDL_Color COL_ACTIVE = { 255, 184, 72, 255 };
 
 enum {
-    ICON_LEVER = 0,
+    ICON_THROTTLE_OFF = 0,
+    ICON_THROTTLE_ON,
     ICON_BOMB,
     ICON_GUNS,
     ICON_BACK,
@@ -352,22 +353,40 @@ enum {
 
 /* 16x16 pixel-art icons: '#' solid, '+' half transparent, '.' empty. */
 static const char *icon_art[ICON_COUNT][16] = {
-    {                           /* engine lever (off = tilted back) */
-        ".##.............",
-        "####............",
-        "####............",
-        ".###............",
-        "...##...........",
-        "....##..........",
-        ".....##.........",
-        "......##........",
-        ".......##.......",
-        "........##......",
-        ".....######.....",
-        "....########....",
+    {                           /* throttle, handle down (engine off) */
+        "......####......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......#..#......",
         "...##########...",
         "..############..",
         "..############..",
+        "...##########...",
+        "................",
+    },
+    {                           /* throttle, handle up (engine on) */
+        "...##########...",
+        "..############..",
+        "..############..",
+        "...##########...",
+        "......#..#......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......#..#......",
+        "....#.#..#.#....",
+        "......#..#......",
+        "......####......",
         "................",
     },
     {                           /* aerial bomb, tail fins up */
@@ -540,8 +559,8 @@ static void draw_icon(SDL_Renderer *renderer, int icon, int cx, int cy, int size
         return;
 
     /* Whole multiples of 16 keep the pixel art crisp. */
-    if (size >= 32)
-        size = size / 16 * 16;
+    if (size >= 24)
+        size = (size + 8) / 16 * 16;
 
     SDL_Rect dst = { cx - size / 2, cy - size / 2, size, size };
     set_tex_color(icon_tex[icon], c);
@@ -693,9 +712,9 @@ void touch_draw(SDL_Renderer *renderer) {
         ingame_frames--;
 
         draw_stick_cue(renderer);
-        /* Lever tilts forward (mirrored) while the engine is running. */
-        draw_button(renderer, &rects[TB_POWER], ICON_LEVER, held[TB_POWER], power_indicator,
-                    power_indicator ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        /* Throttle handle is up while the engine is running. */
+        draw_button(renderer, &rects[TB_POWER], power_indicator ? ICON_THROTTLE_ON : ICON_THROTTLE_OFF,
+                    held[TB_POWER], power_indicator);
         draw_button(renderer, &rects[TB_BOMBS], ICON_BOMB, held[TB_BOMBS], 0);
         draw_button(renderer, &rects[TB_GUNS], ICON_GUNS, held[TB_GUNS], 0);
     }
