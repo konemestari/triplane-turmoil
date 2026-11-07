@@ -117,6 +117,12 @@ void koords(int *x, int *y, int *n1, int *n2) {
     }
 #endif
 
+    if (video_state.viewportWidth <= 0 || video_state.viewportHeight <= 0) {
+        // Nothing drawn yet, viewport unknown
+        *x = *y = 0;
+        return;
+    }
+
     *x = (mouseX - video_state.viewportX) * video_state.surface->w / video_state.viewportWidth;
     *y = (mouseY - video_state.viewportY) * video_state.surface->h / video_state.viewportHeight;
 

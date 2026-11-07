@@ -1230,6 +1230,7 @@ void controls(void) {
                     touch_power_state[l] = 0;
                 if (touch_power_state[l])
                     new_mc_power[l] = 1;
+                touch_set_power_indicator(touch_power_state[l]);
 
                 // Autoroll (same rule as gamepads without a roll button)
                 if (!(hangarmenu_active[l] || in_closing[l]) && !new_mc_roll[l]) {
@@ -3888,6 +3889,11 @@ int main(int argc, char *argv[]) {
 
 #if defined(__SWITCH__) && defined(DEBUG)
     socketExit();
+#endif
+
+#ifdef TRIPLANE_IOS
+    // On iOS returning from main leaves the app frozen; quit for real.
+    exit(0);
 #endif
 
     return 0;

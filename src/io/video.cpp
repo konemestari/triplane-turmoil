@@ -114,6 +114,9 @@ void do_all(int do_retrace) {
     video_state.viewportWidth = dstRect.w;
     video_state.viewportHeight = dstRect.h;
 
+    if (touch_controls_enabled())
+        touch_draw_backdrop(video_state.renderer, video_state.surface, windowWidth, windowHeight, &dstRect);
+
     SDL_RenderCopy(video_state.renderer, video_state.texture, NULL, &dstRect);
 
     if (touch_controls_enabled()) {

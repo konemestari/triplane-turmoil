@@ -48,6 +48,12 @@ void touch_snap_to_button(int *x, int *y);
 /* Called by do_all() with the renderer output size and game viewport. */
 void touch_set_layout(int out_w, int out_h, int vx, int vy, int vw, int vh);
 
+/* Engine power state shown on the power button. */
+void touch_set_power_indicator(int on);
+
+/* Soft side-bar backdrop drawn before the game picture. */
+void touch_draw_backdrop(SDL_Renderer *renderer, SDL_Surface *surface, int out_w, int out_h, const SDL_Rect *pic);
+
 /* Draw the overlay on top of the game picture (before present). */
 void touch_draw(SDL_Renderer *renderer);
 

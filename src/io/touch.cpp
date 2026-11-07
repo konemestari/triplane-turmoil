@@ -44,6 +44,8 @@ static int escape_tap = 0;
 static int ingame_frames = 0;
 static int layout_out_w = 0, layout_out_h = 0;
 static int layout_ready = 0;
+static int layout_vx = 0, layout_vy = 0, layout_vw = 0, layout_vh = 0;
+static int power_indicator = 0;
 
 /* Floating vertical stick (fractions of screen height). */
 #define STICK_DEADZONE 0.025f
@@ -77,8 +79,10 @@ void touch_set_layout(int out_w, int out_h, int vx, int vy, int vw, int vh) {
     if (out_w <= 0 || out_h <= 0)
         return;
 
-    (void) vy;
-    (void) vh;
+    layout_vx = vx;
+    layout_vy = vy;
+    layout_vw = vw;
+    layout_vh = vh;
 
     float left = (float) vx / out_w;
     float right = (float) (out_w - vx - vw) / out_w;
@@ -225,12 +229,16 @@ void touch_mark_ingame(void) {
     ingame_frames = 2;
 }
 
+void touch_set_power_indicator(int on) {
+    power_indicator = on;
+}
+
 /* ------------------------------------------------------------------------ */
 /* Menu button snapping                                                      */
 /* ------------------------------------------------------------------------ */
 
 #define MAX_HIT_RECTS 256
-#define SNAP_DISTANCE 12        /* game pixels (screen is 320x200) */
+#define SNAP_DISTANCE 20        /* game pixels (screen is 320x200) */
 
 static int hit_cur[MAX_HIT_RECTS][4];
 static int hit_cur_count = 0;
@@ -322,6 +330,225 @@ void touch_snap_to_button(int *x, int *y) {
 /* Drawing                                                                   */
 /* ------------------------------------------------------------------------ */
 
+/* Palette: deep navy backdrop, dark translucent buttons, warm cream icons
+   and an amber highlight for pressed/active state. */
+#define BG_R 16
+#define BG_G 20
+#define BG_B 32
+
+static const SDL_Color COL_BUTTON = { 24, 30, 46, 190 };
+static const SDL_Color COL_BUTTON_ON = { 58, 52, 40, 215 };
+static const SDL_Color COL_ICON = { 236, 224, 196, 255 };
+static const SDL_Color COL_ACTIVE = { 255, 184, 72, 255 };
+
+enum {
+    ICON_POWER = 0,
+    ICON_BOMB,
+    ICON_GUNS,
+    ICON_BACK,
+    ICON_CHEVRON,
+    ICON_COUNT
+};
+
+/* 16x16 pixel-art icons: '#' solid, '+' half transparent, '.' empty. */
+static const char *icon_art[ICON_COUNT][16] = {
+    {                           /* power */
+        ".......##.......",
+        ".......##.......",
+        "...##..##..##...",
+        "..###..##..###..",
+        ".###...##...###.",
+        ".##....##....##.",
+        "##.....##.....##",
+        "##.....##.....##",
+        "##............##",
+        "##............##",
+        "+##..........##+",
+        ".###........###.",
+        "..####....####..",
+        "...##########...",
+        ".....######.....",
+        "................",
+    },
+    {                           /* round bomb with fuse */
+        "...........+.+..",
+        "............#...",
+        "...........+.+..",
+        "..........#.....",
+        ".........#......",
+        "......####......",
+        "....########....",
+        "...##########...",
+        "..############..",
+        "..##.#########..",
+        "..#.##########..",
+        "..############..",
+        "..############..",
+        "...##########...",
+        "....########....",
+        "......####......",
+    },
+    {                           /* crosshair */
+        ".......##.......",
+        ".......##.......",
+        ".....######.....",
+        "....##.##.##....",
+        "...##......##...",
+        "..##........##..",
+        "..#..........#..",
+        "#####..##..#####",
+        "#####..##..#####",
+        "..#..........#..",
+        "..##........##..",
+        "...##......##...",
+        "....##.##.##....",
+        ".....######.....",
+        ".......##.......",
+        ".......##.......",
+    },
+    {                           /* back (X) */
+        "................",
+        ".##..........##.",
+        ".###........###.",
+        "..###......###..",
+        "...###....###...",
+        "....###..###....",
+        ".....######.....",
+        "......####......",
+        "......####......",
+        ".....######.....",
+        "....###..###....",
+        "...###....###...",
+        "..###......###..",
+        ".###........###.",
+        ".##..........##.",
+        "................",
+    },
+    {                           /* chevron up */
+        "................",
+        "................",
+        "................",
+        "................",
+        ".......##.......",
+        "......####......",
+        ".....######.....",
+        "....###..###....",
+        "...###....###...",
+        "..###......###..",
+        ".###........###.",
+        ".##..........##.",
+        "................",
+        "................",
+        "................",
+        "................",
+    },
+};
+
+static SDL_Renderer *tex_renderer = NULL;
+static SDL_Texture *icon_tex[ICON_COUNT];
+static SDL_Texture *circle_tex = NULL;
+static SDL_Texture *ambient_tex = NULL;
+
+#define CIRCLE_SIZE 32
+#define AMBIENT_ROWS 50
+
+static SDL_Texture *make_texture(SDL_Renderer *renderer, int w, int h, const Uint32 *pixels, int linear) {
+    SDL_Texture *t = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, w, h);
+    if (t == NULL)
+        return NULL;
+    SDL_UpdateTexture(t, NULL, pixels, w * sizeof(Uint32));
+    SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureScaleMode(t, linear ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+    return t;
+}
+
+static void ensure_textures(SDL_Renderer *renderer) {
+    if (tex_renderer == renderer)
+        return;
+
+    tex_renderer = renderer;
+
+    Uint32 px[CIRCLE_SIZE * CIRCLE_SIZE];
+
+    for (int i = 0; i < ICON_COUNT; i++) {
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 16; x++) {
+                char c = icon_art[i][y][x];
+                Uint32 a = (c == '#') ? 255 : (c == '+' ? 128 : 0);
+                px[y * 16 + x] = (a << 24) | 0xFFFFFF;
+            }
+        icon_tex[i] = make_texture(renderer, 16, 16, px, 0);
+    }
+
+    /* Anti-aliased filled circle used for rounded button corners. */
+    float rad = CIRCLE_SIZE / 2.0f;
+    for (int y = 0; y < CIRCLE_SIZE; y++)
+        for (int x = 0; x < CIRCLE_SIZE; x++) {
+            float dx = x + 0.5f - rad, dy = y + 0.5f - rad;
+            float d = SDL_sqrtf(dx * dx + dy * dy);
+            float a = rad - d + 0.5f;
+            a = a < 0 ? 0 : (a > 1 ? 1 : a);
+            px[y * CIRCLE_SIZE + x] = ((Uint32) (a * 255) << 24) | 0xFFFFFF;
+        }
+    circle_tex = make_texture(renderer, CIRCLE_SIZE, CIRCLE_SIZE, px, 1);
+
+    ambient_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 2, AMBIENT_ROWS);
+    if (ambient_tex) {
+        SDL_SetTextureBlendMode(ambient_tex, SDL_BLENDMODE_BLEND);
+        SDL_SetTextureScaleMode(ambient_tex, SDL_ScaleModeLinear);
+    }
+}
+
+static void set_tex_color(SDL_Texture *t, SDL_Color c) {
+    SDL_SetTextureColorMod(t, c.r, c.g, c.b);
+    SDL_SetTextureAlphaMod(t, c.a);
+}
+
+static void fill_round_rect(SDL_Renderer *renderer, const SDL_Rect &r, int radius, SDL_Color c) {
+    if (radius * 2 > r.w)
+        radius = r.w / 2;
+    if (radius * 2 > r.h)
+        radius = r.h / 2;
+
+    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+
+    SDL_Rect mid = { r.x + radius, r.y, r.w - 2 * radius, r.h };
+    SDL_RenderFillRect(renderer, &mid);
+    SDL_Rect left = { r.x, r.y + radius, radius, r.h - 2 * radius };
+    SDL_RenderFillRect(renderer, &left);
+    SDL_Rect right = { r.x + r.w - radius, r.y + radius, radius, r.h - 2 * radius };
+    SDL_RenderFillRect(renderer, &right);
+
+    if (circle_tex == NULL || radius <= 0)
+        return;
+
+    set_tex_color(circle_tex, c);
+    int h = CIRCLE_SIZE / 2;
+    SDL_Rect src[4] = { { 0, 0, h, h }, { h, 0, h, h }, { 0, h, h, h }, { h, h, h, h } };
+    SDL_Rect dst[4] = {
+        { r.x, r.y, radius, radius },
+        { r.x + r.w - radius, r.y, radius, radius },
+        { r.x, r.y + r.h - radius, radius, radius },
+        { r.x + r.w - radius, r.y + r.h - radius, radius, radius },
+    };
+    for (int i = 0; i < 4; i++)
+        SDL_RenderCopy(renderer, circle_tex, &src[i], &dst[i]);
+}
+
+static void draw_icon(SDL_Renderer *renderer, int icon, int cx, int cy, int size, SDL_Color c, int flip) {
+    if (icon_tex[icon] == NULL)
+        return;
+
+    /* Whole multiples of 16 keep the pixel art crisp. */
+    if (size >= 32)
+        size = size / 16 * 16;
+
+    SDL_Rect dst = { cx - size / 2, cy - size / 2, size, size };
+    set_tex_color(icon_tex[icon], c);
+    SDL_RenderCopyEx(renderer, icon_tex[icon], NULL, &dst, 0, NULL,
+                     flip ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE);
+}
+
 static SDL_Rect to_pixels(const touch_rect *t) {
     SDL_Rect r;
     r.x = (int) (t->x * layout_out_w);
@@ -329,8 +556,8 @@ static SDL_Rect to_pixels(const touch_rect *t) {
     r.w = (int) (t->w * layout_out_w);
     r.h = (int) (t->h * layout_out_h);
 
-    /* Small inset so neighbouring buttons look separate. */
-    int inset = layout_out_h / 80 + 2;
+    /* Gap so neighbouring buttons look separate. */
+    int inset = layout_out_h / 60 + 3;
     r.x += inset;
     r.y += inset;
     r.w -= 2 * inset;
@@ -338,119 +565,158 @@ static SDL_Rect to_pixels(const touch_rect *t) {
     return r;
 }
 
-static void draw_box(SDL_Renderer *renderer, const SDL_Rect &r, int active) {
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, active ? 90 : 35);
-    SDL_RenderFillRect(renderer, &r);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 140);
-    SDL_RenderDrawRect(renderer, &r);
+static void draw_button(SDL_Renderer *renderer, const touch_rect *t, int icon, int pressed, int lit) {
+    SDL_Rect r = to_pixels(t);
+    int m = r.w < r.h ? r.w : r.h;
+
+    fill_round_rect(renderer, r, m / 5, (pressed || lit) ? COL_BUTTON_ON : COL_BUTTON);
+
+    SDL_Color ic = (pressed || lit) ? COL_ACTIVE : COL_ICON;
+    draw_icon(renderer, icon, r.x + r.w / 2, r.y + r.h / 2, m * 55 / 100, ic, 0);
 }
 
-static void draw_triangle(SDL_Renderer *renderer, int cx, int cy, int s, int pointing_up, int alpha) {
-    int tip = pointing_up ? cy - s : cy + s;
-    int base = pointing_up ? cy + s : cy - s;
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
-    for (int t = -1; t <= 1; t++) {
-        SDL_RenderDrawLine(renderer, cx + t, tip, cx - s + t, base);
-        SDL_RenderDrawLine(renderer, cx + t, tip, cx + s + t, base);
-        SDL_RenderDrawLine(renderer, cx - s, base + t, cx + s, base + t);
-    }
-}
-
-static void draw_cross(SDL_Renderer *renderer, const SDL_Rect &r, int diagonal) {
+static void draw_stick_cue(SDL_Renderer *renderer) {
+    /* Static, low-contrast hint: slide up/down anywhere on the left. */
+    SDL_Rect r = to_pixels(&stick_hint);
     int cx = r.x + r.w / 2;
-    int cy = r.y + r.h / 2;
-    int s = (r.w < r.h ? r.w : r.h) / 4;
+    int size = (r.w * 45 / 100);
+    if (size > 64)
+        size = 64;
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
-    for (int t = -1; t <= 1; t++) {
-        if (diagonal) {
-            SDL_RenderDrawLine(renderer, cx - s + t, cy - s, cx + s + t, cy + s);
-            SDL_RenderDrawLine(renderer, cx + s + t, cy - s, cx - s + t, cy + s);
-        }
-        else {
-            SDL_RenderDrawLine(renderer, cx - s, cy + t, cx + s, cy + t);
-            SDL_RenderDrawLine(renderer, cx + t, cy - s, cx + t, cy + s);
-        }
+    int top = r.y + size / 2;
+    int bottom = r.y + r.h - size / 2;
+
+    SDL_Color idle = COL_ICON;
+    idle.a = 70;
+    SDL_Color on = COL_ACTIVE;
+    on.a = 230;
+
+    draw_icon(renderer, ICON_CHEVRON, cx, top, size, (stick_active && stick_dir < 0) ? on : idle, 0);
+    draw_icon(renderer, ICON_CHEVRON, cx, bottom, size, (stick_active && stick_dir > 0) ? on : idle, 1);
+
+    /* Dotted guide line between the chevrons */
+    int dot = layout_out_h / 120 + 2;
+    int y0 = top + size / 2 + dot * 2;
+    int y1 = bottom - size / 2 - dot * 2;
+    SDL_SetRenderDrawColor(renderer, COL_ICON.r, COL_ICON.g, COL_ICON.b, stick_active ? 70 : 40);
+    for (int y = y0; y < y1; y += dot * 3) {
+        SDL_Rect d = { cx - dot / 2, y, dot, dot };
+        SDL_RenderFillRect(renderer, &d);
     }
 }
 
-static void draw_square(SDL_Renderer *renderer, const SDL_Rect &r, int filled) {
-    int s = (r.w < r.h ? r.w : r.h) / 5;
-    SDL_Rect q = { r.x + r.w / 2 - s, r.y + r.h / 2 - s, 2 * s, 2 * s };
-
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200);
-    if (filled)
-        SDL_RenderFillRect(renderer, &q);
-    else
-        SDL_RenderDrawRect(renderer, &q);
-}
-
-static void draw_stick(SDL_Renderer *renderer) {
-    int h = layout_out_h;
-    int s = h / 30 + 3;
-
-    if (!stick_active) {
-        /* Faint hint in the left bar: slide up/down here. */
-        SDL_Rect r = to_pixels(&stick_hint);
-        int cx = r.x + r.w / 2;
-        int cy = r.y + r.h / 2;
-        draw_triangle(renderer, cx, cy - 2 * s, s, 1, 70);
-        draw_triangle(renderer, cx, cy + 2 * s, s, 0, 70);
+void touch_draw_backdrop(SDL_Renderer *renderer, SDL_Surface *surface, int out_w, int out_h, const SDL_Rect *pic) {
+    if (!touch_controls_enabled() || surface == NULL)
         return;
+
+    ensure_textures(renderer);
+    if (ambient_tex == NULL)
+        return;
+
+    /* Average the outermost picture columns into a tiny texture; drawn with
+       linear filtering it gives a soft "ambient light" in the side bars. */
+    Uint32 amb[2 * AMBIENT_ROWS];
+    int band = surface->w / 80 + 1;     /* columns averaged per side */
+    int rows = surface->h / AMBIENT_ROWS;
+    if (rows < 1)
+        rows = 1;
+
+    for (int ar = 0; ar < AMBIENT_ROWS; ar++) {
+        for (int side = 0; side < 2; side++) {
+            unsigned sr = 0, sg = 0, sb = 0, n = 0;
+            int x0 = side == 0 ? 0 : surface->w - band;
+            for (int y = ar * rows; y < (ar + 1) * rows && y < surface->h; y++) {
+                Uint32 *line = (Uint32 *) ((Uint8 *) surface->pixels + y * surface->pitch);
+                for (int x = x0; x < x0 + band; x++) {
+                    Uint8 r, g, b;
+                    SDL_GetRGB(line[x], surface->format, &r, &g, &b);
+                    sr += r;
+                    sg += g;
+                    sb += b;
+                    n++;
+                }
+            }
+            if (n == 0)
+                n = 1;
+            amb[ar * 2 + side] = 0xFF000000u | ((sr / n) << 16) | ((sg / n) << 8) | (sb / n);
+        }
+    }
+    SDL_UpdateTexture(ambient_tex, NULL, amb, 2 * sizeof(Uint32));
+
+    /* Slightly cool tint so the bars sit calmly next to the picture. */
+    SDL_SetTextureColorMod(ambient_tex, 190, 200, 225);
+
+    const int bands = 28;
+    int left = pic->x;
+    int right_start = pic->x + pic->w;
+    int right = out_w - right_start;
+
+    for (int i = 0; i < bands; i++) {
+        float t0 = (float) i / bands, t1 = (float) (i + 1) / bands;
+        float t = (t0 + t1) * 0.5f;
+        float fall = 1.0f - t;
+        int alpha = (int) (235 * fall * fall);
+        SDL_SetTextureAlphaMod(ambient_tex, (Uint8) alpha);
+
+        if (left > 0) {
+            int xa = left - (int) (t1 * left), xb = left - (int) (t0 * left);
+            SDL_Rect src = { 0, 0, 1, AMBIENT_ROWS };
+            SDL_Rect dst = { xa, pic->y, xb - xa, pic->h };
+            if (dst.w > 0)
+                SDL_RenderCopy(renderer, ambient_tex, &src, &dst);
+        }
+        if (right > 0) {
+            int xa = right_start + (int) (t0 * right), xb = right_start + (int) (t1 * right);
+            SDL_Rect src = { 1, 0, 1, AMBIENT_ROWS };
+            SDL_Rect dst = { xa, pic->y, xb - xa, pic->h };
+            if (dst.w > 0)
+                SDL_RenderCopy(renderer, ambient_tex, &src, &dst);
+        }
     }
 
-    int ax = (int) (stick_anchor_x * layout_out_w);
-    int ay = (int) (stick_anchor_y * h);
-    int travel = (int) (STICK_TRAVEL * h);
-    int ky = (int) (stick_y * h);
+    (void) out_h;
+}
 
-    /* Track */
-    SDL_Rect track = { ax - 2, ay - travel - s, 4, 2 * (travel + s) };
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 60);
-    SDL_RenderFillRect(renderer, &track);
+static void draw_edge_fade(SDL_Renderer *renderer) {
+    /* Soften the hard picture edge: darken the outer few percent of the
+       picture slightly towards the backdrop colour. */
+    if (layout_vx <= 0 && layout_vw >= layout_out_w)
+        return;
 
-    /* Direction arrows light up when active */
-    draw_triangle(renderer, ax, ay - travel - 2 * s, s, 1, stick_dir < 0 ? 230 : 70);
-    draw_triangle(renderer, ax, ay + travel + 2 * s, s, 0, stick_dir > 0 ? 230 : 70);
-
-    /* Knob */
-    SDL_Rect knob = { ax - 2 * s, ky - s, 4 * s, 2 * s };
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 120);
-    SDL_RenderFillRect(renderer, &knob);
+    int f = layout_vw * 4 / 100;
+    for (int d = 0; d < f; d++) {
+        float t = 1.0f - (float) d / f;
+        int a = (int) (110 * t * t);
+        SDL_SetRenderDrawColor(renderer, BG_R, BG_G, BG_B, (Uint8) a);
+        int y0 = layout_vy, y1 = layout_vy + layout_vh - 1;
+        SDL_RenderDrawLine(renderer, layout_vx + d, y0, layout_vx + d, y1);
+        SDL_RenderDrawLine(renderer, layout_vx + layout_vw - 1 - d, y0, layout_vx + layout_vw - 1 - d, y1);
+    }
 }
 
 void touch_draw(SDL_Renderer *renderer) {
     if (!touch_controls_enabled() || !layout_ready)
         return;
 
+    ensure_textures(renderer);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
+    draw_edge_fade(renderer);
+
     /* Back button is always available (menus need it too). */
-    SDL_Rect esc = to_pixels(&rects[TB_ESCAPE]);
-    draw_box(renderer, esc, held[TB_ESCAPE]);
-    draw_cross(renderer, esc, 1);
+    draw_button(renderer, &rects[TB_ESCAPE], ICON_BACK, held[TB_ESCAPE], 0);
 
     if (ingame_frames > 0) {
         ingame_frames--;
 
-        draw_stick(renderer);
-
-        SDL_Rect power = to_pixels(&rects[TB_POWER]);
-        draw_box(renderer, power, held[TB_POWER]);
-        draw_square(renderer, power, 0);
-
-        SDL_Rect bombs = to_pixels(&rects[TB_BOMBS]);
-        draw_box(renderer, bombs, held[TB_BOMBS]);
-        draw_square(renderer, bombs, 1);
-
-        SDL_Rect guns = to_pixels(&rects[TB_GUNS]);
-        draw_box(renderer, guns, held[TB_GUNS]);
-        draw_cross(renderer, guns, 0);
+        draw_stick_cue(renderer);
+        draw_button(renderer, &rects[TB_POWER], ICON_POWER, held[TB_POWER], power_indicator);
+        draw_button(renderer, &rects[TB_BOMBS], ICON_BOMB, held[TB_BOMBS], 0);
+        draw_button(renderer, &rects[TB_GUNS], ICON_GUNS, held[TB_GUNS], 0);
     }
 
-    /* Restore state: SDL_RenderClear uses the draw colour, so leaving it
-       white would paint the letterbox bars white on the next frame. */
+    /* Restore state: SDL_RenderClear uses the draw colour, so this also sets
+       the backdrop colour for the next frame. */
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer, BG_R, BG_G, BG_B, 255);
 }
