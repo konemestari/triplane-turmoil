@@ -342,7 +342,7 @@ static const SDL_Color COL_ICON = { 236, 224, 196, 255 };
 static const SDL_Color COL_ACTIVE = { 255, 184, 72, 255 };
 
 enum {
-    ICON_POWER = 0,
+    ICON_LEVER = 0,
     ICON_BOMB,
     ICON_GUNS,
     ICON_BACK,
@@ -352,40 +352,40 @@ enum {
 
 /* 16x16 pixel-art icons: '#' solid, '+' half transparent, '.' empty. */
 static const char *icon_art[ICON_COUNT][16] = {
-    {                           /* power */
+    {                           /* engine lever (off = tilted back) */
+        ".##.............",
+        "####............",
+        "####............",
+        ".###............",
+        "...##...........",
+        "....##..........",
+        ".....##.........",
+        "......##........",
         ".......##.......",
-        ".......##.......",
-        "...##..##..##...",
-        "..###..##..###..",
-        ".###...##...###.",
-        ".##....##....##.",
-        "##.....##.....##",
-        "##.....##.....##",
-        "##............##",
-        "##............##",
-        "+##..........##+",
-        ".###........###.",
-        "..####....####..",
-        "...##########...",
+        "........##......",
         ".....######.....",
+        "....########....",
+        "...##########...",
+        "..############..",
+        "..############..",
         "................",
     },
-    {                           /* round bomb with fuse */
-        "...........+.+..",
-        "............#...",
-        "...........+.+..",
-        "..........#.....",
-        ".........#......",
+    {                           /* aerial bomb, tail fins up */
+        "..##........##..",
+        "..###......###..",
+        "..####....####..",
+        "...####..####...",
+        "....########....",
         "......####......",
+        ".....######.....",
         "....########....",
         "...##########...",
-        "..############..",
-        "..##.#########..",
-        "..#.##########..",
-        "..############..",
-        "..############..",
+        "...##########...",
+        "...#.########...",
+        "...#.########...",
         "...##########...",
         "....########....",
+        ".....######.....",
         "......####......",
     },
     {                           /* crosshair */
@@ -535,7 +535,7 @@ static void fill_round_rect(SDL_Renderer *renderer, const SDL_Rect &r, int radiu
         SDL_RenderCopy(renderer, circle_tex, &src[i], &dst[i]);
 }
 
-static void draw_icon(SDL_Renderer *renderer, int icon, int cx, int cy, int size, SDL_Color c, int flip) {
+static void draw_icon(SDL_Renderer *renderer, int icon, int cx, int cy, int size, SDL_Color c, SDL_RendererFlip flip) {
     if (icon_tex[icon] == NULL)
         return;
 
@@ -545,8 +545,7 @@ static void draw_icon(SDL_Renderer *renderer, int icon, int cx, int cy, int size
 
     SDL_Rect dst = { cx - size / 2, cy - size / 2, size, size };
     set_tex_color(icon_tex[icon], c);
-    SDL_RenderCopyEx(renderer, icon_tex[icon], NULL, &dst, 0, NULL,
-                     flip ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE);
+    SDL_RenderCopyEx(renderer, icon_tex[icon], NULL, &dst, 0, NULL, flip);
 }
 
 static SDL_Rect to_pixels(const touch_rect *t) {
@@ -565,14 +564,15 @@ static SDL_Rect to_pixels(const touch_rect *t) {
     return r;
 }
 
-static void draw_button(SDL_Renderer *renderer, const touch_rect *t, int icon, int pressed, int lit) {
+static void draw_button(SDL_Renderer *renderer, const touch_rect *t, int icon, int pressed, int lit,
+                        SDL_RendererFlip flip = SDL_FLIP_NONE) {
     SDL_Rect r = to_pixels(t);
     int m = r.w < r.h ? r.w : r.h;
 
     fill_round_rect(renderer, r, m / 5, (pressed || lit) ? COL_BUTTON_ON : COL_BUTTON);
 
     SDL_Color ic = (pressed || lit) ? COL_ACTIVE : COL_ICON;
-    draw_icon(renderer, icon, r.x + r.w / 2, r.y + r.h / 2, m * 55 / 100, ic, 0);
+    draw_icon(renderer, icon, r.x + r.w / 2, r.y + r.h / 2, m * 55 / 100, ic, flip);
 }
 
 static void draw_stick_cue(SDL_Renderer *renderer) {
@@ -591,8 +591,8 @@ static void draw_stick_cue(SDL_Renderer *renderer) {
     SDL_Color on = COL_ACTIVE;
     on.a = 230;
 
-    draw_icon(renderer, ICON_CHEVRON, cx, top, size, (stick_active && stick_dir < 0) ? on : idle, 0);
-    draw_icon(renderer, ICON_CHEVRON, cx, bottom, size, (stick_active && stick_dir > 0) ? on : idle, 1);
+    draw_icon(renderer, ICON_CHEVRON, cx, top, size, (stick_active && stick_dir < 0) ? on : idle, SDL_FLIP_NONE);
+    draw_icon(renderer, ICON_CHEVRON, cx, bottom, size, (stick_active && stick_dir > 0) ? on : idle, SDL_FLIP_VERTICAL);
 
     /* Dotted guide line between the chevrons */
     int dot = layout_out_h / 120 + 2;
@@ -643,8 +643,6 @@ void touch_draw_backdrop(SDL_Renderer *renderer, SDL_Surface *surface, int out_w
     }
     SDL_UpdateTexture(ambient_tex, NULL, amb, 2 * sizeof(Uint32));
 
-    /* Slightly cool tint so the bars sit calmly next to the picture. */
-    SDL_SetTextureColorMod(ambient_tex, 190, 200, 225);
 
     const int bands = 28;
     int left = pic->x;
@@ -655,8 +653,12 @@ void touch_draw_backdrop(SDL_Renderer *renderer, SDL_Surface *surface, int out_w
         float t0 = (float) i / bands, t1 = (float) (i + 1) / bands;
         float t = (t0 + t1) * 0.5f;
         float fall = 1.0f - t;
-        int alpha = (int) (235 * fall * fall);
+        int alpha = (int) (255 * fall * fall);
         SDL_SetTextureAlphaMod(ambient_tex, (Uint8) alpha);
+
+        /* Full picture colour at the edge, easing into a slightly cool tint. */
+        float k = t * 2.0f > 1.0f ? 1.0f : t * 2.0f;
+        SDL_SetTextureColorMod(ambient_tex, (Uint8) (255 - 65 * k), (Uint8) (255 - 55 * k), (Uint8) (255 - 30 * k));
 
         if (left > 0) {
             int xa = left - (int) (t1 * left), xb = left - (int) (t0 * left);
@@ -677,31 +679,12 @@ void touch_draw_backdrop(SDL_Renderer *renderer, SDL_Surface *surface, int out_w
     (void) out_h;
 }
 
-static void draw_edge_fade(SDL_Renderer *renderer) {
-    /* Soften the hard picture edge: darken the outer few percent of the
-       picture slightly towards the backdrop colour. */
-    if (layout_vx <= 0 && layout_vw >= layout_out_w)
-        return;
-
-    int f = layout_vw * 4 / 100;
-    for (int d = 0; d < f; d++) {
-        float t = 1.0f - (float) d / f;
-        int a = (int) (110 * t * t);
-        SDL_SetRenderDrawColor(renderer, BG_R, BG_G, BG_B, (Uint8) a);
-        int y0 = layout_vy, y1 = layout_vy + layout_vh - 1;
-        SDL_RenderDrawLine(renderer, layout_vx + d, y0, layout_vx + d, y1);
-        SDL_RenderDrawLine(renderer, layout_vx + layout_vw - 1 - d, y0, layout_vx + layout_vw - 1 - d, y1);
-    }
-}
-
 void touch_draw(SDL_Renderer *renderer) {
     if (!touch_controls_enabled() || !layout_ready)
         return;
 
     ensure_textures(renderer);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-    draw_edge_fade(renderer);
 
     /* Back button is always available (menus need it too). */
     draw_button(renderer, &rects[TB_ESCAPE], ICON_BACK, held[TB_ESCAPE], 0);
@@ -710,7 +693,9 @@ void touch_draw(SDL_Renderer *renderer) {
         ingame_frames--;
 
         draw_stick_cue(renderer);
-        draw_button(renderer, &rects[TB_POWER], ICON_POWER, held[TB_POWER], power_indicator);
+        /* Lever tilts forward (mirrored) while the engine is running. */
+        draw_button(renderer, &rects[TB_POWER], ICON_LEVER, held[TB_POWER], power_indicator,
+                    power_indicator ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
         draw_button(renderer, &rects[TB_BOMBS], ICON_BOMB, held[TB_BOMBS], 0);
         draw_button(renderer, &rects[TB_GUNS], ICON_GUNS, held[TB_GUNS], 0);
     }
