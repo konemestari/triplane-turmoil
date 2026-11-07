@@ -20,6 +20,7 @@
 
 /* Triplane Turmoil menusystem */
 
+#include "io/touch.h"
 #include "io/trip_io.h"
 #include "triplane.h"
 #include "tripmenu.h"
@@ -653,6 +654,10 @@ int solo_player_menu(void) {
         cursor->blit(x - 10, y - 10);
         do_all_clear();
 
+        for (l = 0; l <= highest_mission; l++)
+            touch_hit_register(23, 125, 21 + 27 * l, 44 + 27 * l);
+        touch_hit_register(140, 319, 0, 199);
+
         if (n1 || n2) {
             for (l = 0; l <= highest_mission; l++) {
                 if (x >= 23 && x <= 125 && y > (20 + 27 * l) && y < (45 + 27 * l)) {
@@ -883,38 +888,38 @@ void roster_menu(void) {
         menuselect = 0;
 
         if (!keysetmode)
-            if (x >= 257 && x <= 272 && y >= 53 && y <= 173) {
+            if (touch_hit(x, y, 257, 272, 53, 173)) {
                 frost->printf(15, 24, "Create new\n pilot");
                 menuselect = 1;
             }
 
-        if (x >= 36 && x <= 80 && y >= 118 && y <= 177) {
+        if (touch_hit(x, y, 36, 80, 118, 177)) {
             frost->printf(15, 24, "Back to\n main menu");
             menuselect = 2;
         }
 
-        if (x >= 205 && x <= 221 && y >= 174 && y <= 182) {
+        if (touch_hit(x, y, 205, 221, 174, 182)) {
             frost->printf(15, 24, "Next pilot");
             menuselect = 3;
         }
 
-        if (x >= 187 && x <= 203 && y >= 174 && y <= 182) {
+        if (touch_hit(x, y, 187, 203, 174, 182)) {
             frost->printf(15, 24, "Previous pilot");
             menuselect = 4;
         }
 
         if (!keysetmode)
-            if (x >= 263 && x <= 301 && y >= 8 && y <= 55) {
+            if (touch_hit(x, y, 263, 301, 8, 55)) {
                 frost->printf(15, 24, "Erase pilot");
                 menuselect = 5;
             }
 
-        if (x >= 286 && x <= 318 && y >= 190 && y <= 198) {
+        if (touch_hit(x, y, 286, 318, 190, 198)) {
             frost->printf(15, 24, "Toggle setkeys\n mode");
             menuselect = 6;
         }
 
-        if (keysetmode && x >= 125 && x <= 157 && y >= 172 && y <= 180) {
+        if (keysetmode && touch_hit(x, y, 125, 157, 172, 180)) {
             frost->printf(15, 24, "Set Sologame\n Keys");
             menuselect = 7;
         }
@@ -1428,33 +1433,43 @@ void options_menu(void) {
            menuselect=1;
            } */
 
-        if (x >= 267 && x <= 301 && y >= 155 && y <= 190) {
+        if (touch_hit(x, y, 267, 301, 155, 190)) {
             frost->printf(102, 26, "Back to main menu");
             menuselect = 2;
         }
 
-        if (x >= 248 && x <= 260 && y >= 117 && y <= 145) {
+        if (touch_hit(x, y, 248, 260, 117, 145)) {
             frost->printf(102, 26, "Change to visual settings");
             menuselect = 3;
 
         }
 
-        if (x >= 248 && x <= 260 && y >= 80 && y <= 116) {
+        if (touch_hit(x, y, 248, 260, 80, 116)) {
             frost->printf(102, 26, "Change to audio settings");
             menuselect = 4;
 
         }
 
-        if (x >= 248 && x <= 260 && y >= 47 && y <= 79) {
+        if (touch_hit(x, y, 248, 260, 47, 79)) {
             frost->printf(102, 26, "Change to general flying settings");
             menuselect = 5;
 
         }
 
-        if (x >= 248 && x <= 260 && y >= 13 && y <= 46) {
+        if (touch_hit(x, y, 248, 260, 13, 46)) {
             frost->printf(102, 26, "Change to multiplayer settings");
             menuselect = 6;
 
+        }
+
+        if (optimode == 0) {
+            touch_hit_arrow_row(60, 68);
+            touch_hit_arrow_row(70, 78);
+            touch_hit_arrow_row(80, 88);
+            touch_hit_arrow_row(90, 98);
+            touch_hit_arrow_row(100, 108);
+            touch_hit_arrow_row(130, 138);
+            touch_hit_arrow_row(110, 118);
         }
 
         if (optimode == 0)
@@ -1508,6 +1523,17 @@ void options_menu(void) {
 
 
             }
+
+        if (optimode == 1) {
+            touch_hit_arrow_row(60, 68);
+            touch_hit_arrow_row(70, 78);
+            touch_hit_arrow_row(80, 88);
+            touch_hit_arrow_row(90, 98);
+            touch_hit_arrow_row(100, 108);
+            touch_hit_arrow_row(110, 118);
+            touch_hit_arrow_row(120, 128);
+            touch_hit_arrow_row(130, 138);
+        }
 
         if (optimode == 1)
             if ((x >= 214 && x <= 221) || (x >= 224 && x <= 231)) {
@@ -1567,6 +1593,11 @@ void options_menu(void) {
 
             }
 
+        if (optimode == 2) {
+            touch_hit_arrow_row(60, 68);
+            touch_hit_arrow_row(70, 78);
+        }
+
         if (optimode == 2)
             if ((x >= 214 && x <= 221) || (x >= 224 && x <= 231)) {
                 if (x <= 221)
@@ -1590,7 +1621,20 @@ void options_menu(void) {
             }
 
         if (optimode == 3) {
-            if (x >= 214 && x <= 231 && y >= 90 && y <= 98)
+            touch_hit_arrow_row(60, 68);
+            touch_hit_arrow_row(70, 78);
+            touch_hit_arrow_row(80, 88);
+            touch_hit_arrow_row(90, 98);
+            touch_hit_arrow_row(100, 108);
+            touch_hit_arrow_row(110, 118);
+            touch_hit_arrow_row(120, 128);
+            touch_hit_arrow_row(130, 138);
+            touch_hit_arrow_row(140, 148);
+            touch_hit_arrow_row(150, 158);
+        }
+
+        if (optimode == 3) {
+            if (touch_hit(x, y, 214, 231, 90, 98))
                 menuselect = 28;
 
             if ((x >= 214 && x <= 221) || (x >= 224 && x <= 231)) {
@@ -1664,37 +1708,37 @@ void options_menu(void) {
 
             }
 
-            if (config.all_planes_are && x >= 34 && y >= 10 && x <= 41 && y <= 18) {
+            if (config.all_planes_are && touch_hit(x, y, 34, 41, 10, 18)) {
                 menuselect = 51;
 
             }
 
-            if (config.all_planes_are && x >= 34 && y >= 31 && x <= 41 && y <= 39) {
+            if (config.all_planes_are && touch_hit(x, y, 34, 41, 31, 39)) {
                 menuselect = 52;
 
             }
 
-            if (config.all_planes_are && x >= 34 && y >= 52 && x <= 41 && y <= 60) {
+            if (config.all_planes_are && touch_hit(x, y, 34, 41, 52, 60)) {
                 menuselect = 53;
 
             }
 
-            if (config.all_planes_are && x >= 34 && y >= 73 && x <= 41 && y <= 81) {
+            if (config.all_planes_are && touch_hit(x, y, 34, 41, 73, 81)) {
                 menuselect = 54;
 
             }
 
-            if (config.alliance && x >= 5 && y >= 96 && x <= 53 && y <= 128) {
+            if (config.alliance && touch_hit(x, y, 5, 53, 96, 128)) {
                 menuselect = 55;
 
             }
 
-            if (config.alliance && x >= 5 && y >= 129 && x <= 53 && y <= 160) {
+            if (config.alliance && touch_hit(x, y, 5, 53, 129, 160)) {
                 menuselect = 56;
 
             }
 
-            if (config.alliance && x >= 5 && y >= 161 && x <= 53 && y <= 182) {
+            if (config.alliance && touch_hit(x, y, 5, 53, 161, 182)) {
                 menuselect = 57;
 
             }
@@ -1944,10 +1988,10 @@ void transfer_menu(void) {
 
         menuselect = 0;
 
-        if ((x >= 0 && x <= 319 && y >= 0 && y <= 41)
-            || (x >= 0 && x <= 319 && y >= 151 && y <= 199)
-            || (x >= 0 && x <= 32 && y >= 0 && y <= 199)
-            || (x >= 282 && x <= 319 && y >= 0 && y <= 199)) {
+        if ((touch_hit(x, y, 0, 319, 0, 41))
+            || (touch_hit(x, y, 0, 319, 151, 199))
+            || (touch_hit(x, y, 0, 32, 0, 199))
+            || (touch_hit(x, y, 282, 319, 0, 199))) {
             //frost->printf(25,180,"Back to main menu");
             menuselect = 2;
         }
@@ -2115,56 +2159,56 @@ void controls_menu(void) {
 
         menuselect = 0;
 
-        if ((x >= 0 && x <= 106 && y >= 73 && y <= 107)
-            || (x >= 68 && x <= 106 && y >= 0 && y <= 73)
-            || (x >= 108 && x <= 319 && y >= 88 && y <= 109)
-            || (x >= 301 && x <= 319 && y >= 111 && y <= 199)
-            || (x >= 0 && x <= 7 && y >= 114 && y <= 199)) {
+        if ((touch_hit(x, y, 0, 106, 73, 107))
+            || (touch_hit(x, y, 68, 106, 0, 73))
+            || (touch_hit(x, y, 108, 319, 88, 109))
+            || (touch_hit(x, y, 301, 319, 111, 199))
+            || (touch_hit(x, y, 0, 7, 114, 199))) {
             frost->printf(61, 97, "Back to main menu");
             menuselect = 2;
         }
 
-        if ((x >= 11 && x <= 296 && y >= 112 && y <= 195)) {
+        if ((touch_hit(x, y, 11, 296, 112, 195))) {
             frost->printf(61, 97, "Set keys");
             menuselect = 3;
         }
 
-        if ((x >= 10 && x <= 24 && y >= 22 && y <= 35)) {
+        if ((touch_hit(x, y, 10, 24, 22, 35))) {
             frost->printf(61, 97, "Select Red Plane");
             menuselect = 4;
         }
 
-        if ((x >= 37 && x <= 51 && y >= 22 && y <= 35)) {
+        if ((touch_hit(x, y, 37, 51, 22, 35))) {
             frost->printf(61, 97, "Select Blue Plane");
             menuselect = 5;
         }
 
-        if ((x >= 10 && x <= 24 && y >= 45 && y <= 58)) {
+        if ((touch_hit(x, y, 10, 24, 45, 58))) {
             frost->printf(61, 97, "Select Green Plane");
             menuselect = 6;
         }
 
-        if ((x >= 37 && x <= 51 && y >= 45 && y <= 58)) {
+        if ((touch_hit(x, y, 37, 51, 45, 58))) {
             frost->printf(61, 97, "Select Yellow Plane");
             menuselect = 7;
         }
 
-        if ((x >= 108 && x <= 212 && y >= 0 && y <= 43)) {
+        if ((touch_hit(x, y, 108, 212, 0, 43))) {
             frost->printf(61, 97, "Select Joystick 1");
             menuselect = 8;
         }
 
-        if ((x >= 214 && x <= 318 && y >= 0 && y <= 43)) {
+        if ((touch_hit(x, y, 214, 318, 0, 43))) {
             frost->printf(61, 97, "Select Joystick 2");
             menuselect = 9;
         }
 
-        if ((x >= 108 && x <= 212 && y >= 44 && y <= 87)) {
+        if ((touch_hit(x, y, 108, 212, 44, 87))) {
             frost->printf(61, 97, "Select Joystick 3");
             menuselect = 9;
         }
 
-        if ((x >= 214 && x <= 318 && y >= 44 && y <= 87)) {
+        if ((touch_hit(x, y, 214, 318, 44, 87))) {
             frost->printf(61, 97, "Select Joystick 4");
             menuselect = 10;
         }
@@ -2374,8 +2418,8 @@ void assign_menu(void) {
 
         menuselect = 0;
 
-        if ((x >= 0 && x <= 8 && y >= 0 && y <= 199) ||
-            (x >= 308 && x <= 319 && y >= 0 && y <= 199) || (x >= 0 && x <= 319 && y >= 0 && y <= 28) || (x >= 0 && x <= 319 && y >= 168 && y <= 199)) {
+        if ((touch_hit(x, y, 0, 8, 0, 199)) ||
+            (touch_hit(x, y, 308, 319, 0, 199)) || (touch_hit(x, y, 0, 319, 0, 28)) || (touch_hit(x, y, 0, 319, 168, 199))) {
             //frost->printf(82,177,"Back to main menu");
             menuselect = 2;
         }
@@ -2687,19 +2731,19 @@ void aces_menu(void) {
 
         menuselect = 0;
 
-        if ((x >= 0 && x <= 66 && y >= 0 && y <= 199) ||
-            (x >= 269 && x <= 319 && y >= 0 && y <= 199) || (x >= 0 && x <= 319 && y >= 0 && y <= 11) || (x >= 0 && x <= 319 && y >= 189 && y <= 199)) {
+        if ((touch_hit(x, y, 0, 66, 0, 199)) ||
+            (touch_hit(x, y, 269, 319, 0, 199)) || (touch_hit(x, y, 0, 319, 0, 11)) || (touch_hit(x, y, 0, 319, 189, 199))) {
             // main menu
             menuselect = 2;
         }
 
-        if (x >= 231 && x <= 247 && y >= 177 && y <= 185) {
+        if (touch_hit(x, y, 231, 247, 177, 185)) {
             //prev. page
             menuselect = 3;
 
         }
 
-        if (x >= 249 && x <= 265 && y >= 177 && y <= 185) {
+        if (touch_hit(x, y, 249, 265, 177, 185)) {
             //next page
             menuselect = 4;
 
@@ -2857,28 +2901,28 @@ int kangas_menu(void) {
             show_descriptions(solo_mission + solo_country * 6);
 
         menuselect = 0;
-        if (x >= 72 && x <= 88 && y >= 191 && y <= 199) {
+        if (touch_hit(x, y, 72, 88, 191, 199)) {
             //frost->printf(150,188,"Fly mission");
             menuselect = 1;
 
         }
 
-        if (x >= 54 && x <= 70 && y >= 191 && y <= 199) {
+        if (touch_hit(x, y, 54, 70, 191, 199)) {
             //frost->printf(150,188,"Back to mission menu");
             menuselect = 2;
         }
 
-        if (x >= 0 && x <= 16 && y >= 191 && y <= 199) {
+        if (touch_hit(x, y, 0, 16, 191, 199)) {
             //frost->printf(150,188,"Scroll map leftwards");
             menuselect = 3;
         }
 
-        if (x >= 18 && x <= 34 && y >= 191 && y <= 199) {
+        if (touch_hit(x, y, 18, 34, 191, 199)) {
             //frost->printf(150,188,"Scroll map rightwards");
             menuselect = 4;
         }
 
-        if (x >= 5 && x <= 315 && y >= 8 && y <= 178) {
+        if (touch_hit(x, y, 5, 315, 8, 178)) {
             //frost->printf(150,188,"Texts on/off");
             menuselect = 5;
         }
@@ -3237,47 +3281,47 @@ void main_menu(void) {
             help->blit(0, 0);
 
         menuselect = 0;
-        if (x >= 223 && x <= 283 && y >= 101 && y <= 139) {
+        if (touch_hit(x, y, 223, 283, 101, 139)) {
             frost->printf(247, 32, "Start Game");
             menuselect = 1;
         }
 
-        if (x >= 253 && x <= 279 && y >= 154 && y <= 184) {
+        if (touch_hit(x, y, 253, 279, 154, 184)) {
             frost->printf(247, 32, "Quit to OS");
             menuselect = 2;
         }
 
-        if (x >= 193 && x <= 236 && y >= 27 && y <= 69) {
+        if (touch_hit(x, y, 193, 236, 27, 69)) {
             frost->printf(247, 32, "Edit\n Pilotroster");
             menuselect = 3;
         }
 
-        if (x >= 131 && x <= 182 && y >= 26 && y <= 77) {
+        if (touch_hit(x, y, 131, 182, 26, 77)) {
             frost->printf(247, 32, "List of Aces");
             menuselect = 4;
         }
 
-        if (x >= 81 && x <= 125 && y >= 27 && y <= 67) {
+        if (touch_hit(x, y, 81, 125, 27, 67)) {
             frost->printf(247, 32, "Set Controls");
             menuselect = 5;
         }
 
-        if (x >= 30 && x <= 73 && y >= 27 && y <= 54) {
+        if (touch_hit(x, y, 30, 73, 27, 54)) {
             frost->printf(247, 32, "Game Options");
             menuselect = 6;
         }
 
-        if (x >= 30 && x <= 73 && y >= 57 && y <= 97) {
+        if (touch_hit(x, y, 30, 73, 57, 97)) {
             frost->printf(247, 32, "Select Level");
             menuselect = 7;
         }
 
-        if (x >= 30 && x <= 73 && y >= 101 && y <= 141) {
+        if (touch_hit(x, y, 30, 73, 101, 141)) {
             frost->printf(247, 32, "Assign\n players");
             menuselect = 8;
         }
 
-        if (x >= 242 && x <= 295 && y >= 27 && y <= 53) {
+        if (touch_hit(x, y, 242, 295, 27, 53)) {
             frost->printf(247, 32, "Credits");
             menuselect = 9;
         }

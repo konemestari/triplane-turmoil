@@ -630,13 +630,13 @@ int small_warning(const char *message) {
         do_all();
 
         if (n1 || n2) {
-            if (x >= 92 && x <= 131 && y >= 115 && y <= 134) {
+            if (touch_hit(x, y, 92, 131, 115, 134)) {
                 flag = 0;
                 response = 1;
 
             }
 
-            if (x >= 187 && x <= 226 && y >= 115 && y <= 134) {
+            if (touch_hit(x, y, 187, 226, 115, 134)) {
                 flag = 0;
                 response = 0;
 
@@ -2360,7 +2360,7 @@ void do_aftermath(int show_it_all) {
 
             if (n1 || n2) {
                 if (playing_solo) {
-                    if (x >= 72 && y >= 191 && x <= 88 && y <= 199) {
+                    if (touch_hit(x, y, 72, 88, 191, 199)) {
 
                         fly->blit(72, 191);
 
@@ -2379,7 +2379,7 @@ void do_aftermath(int show_it_all) {
 
                     }
 
-                    if (x >= 54 && y >= 191 && x <= 70 && y <= 199) {
+                    if (touch_hit(x, y, 54, 70, 191, 199)) {
                         exit->blit(54, 191);
 
                         if (n1)

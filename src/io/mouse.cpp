@@ -26,6 +26,7 @@
 *******************************************************************************/
 
 #include "io/mouse.h"
+#include "io/touch.h"
 #include "io/video.h"
 #include "io/joystick.h"
 #include <SDL.h>
@@ -103,7 +104,9 @@ void koords(int *x, int *y, int *n1, int *n2) {
 
     // Read touch screen where available
     float touchScreenX, touchScreenY;
+    int touched = 0;
     if (read_touch_screen(&touchScreenX, &touchScreenY)) {
+        touched = 1;
         mouseX = touchScreenX * windowWidth;
         mouseY = touchScreenY * windowHeight;
 
@@ -116,4 +119,18 @@ void koords(int *x, int *y, int *n1, int *n2) {
 
     *x = (mouseX - video_state.viewportX) * video_state.surface->w / video_state.viewportWidth;
     *y = (mouseY - video_state.viewportY) * video_state.surface->h / video_state.viewportHeight;
+
+#ifdef TRIPLANE_TOUCH
+    // Buttons tested since the previous call become the snap targets
+    touch_hit_new_frame();
+
+    // Snap slightly missed taps onto the nearest menu button
+    if (touched) {
+        touch_snap_to_button(x, y);
+
+        int gx = *x * video_state.viewportWidth / video_state.surface->w + video_state.viewportX;
+        int gy = *y * video_state.viewportHeight / video_state.surface->h + video_state.viewportY;
+        SDL_WarpMouseInWindow(video_state.window, gx, gy);
+    }
+#endif
 }
